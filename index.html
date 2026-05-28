@@ -1224,8 +1224,24 @@ function updateHUD() {
 }
 
 // ─── Screen management ────────────────────────────────────────────────────────
-function showScreen(id) { document.getElementById(id).classList.remove('hidden'); }
-function hideScreen(id) { document.getElementById(id).classList.add('hidden'); }
+function showScreen(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  // Force reflow so the fade-in transition triggers
+  el.getBoundingClientRect();
+  el.style.opacity = '1';
+  el.style.pointerEvents = 'all';
+}
+function hideScreen(id) {
+  const el = document.getElementById(id);
+  el.style.opacity = '0';
+  el.style.pointerEvents = 'none';
+  // Remove from layout after transition so it can't block anything
+  const onEnd = () => { el.style.display = 'none'; el.removeEventListener('transitionend', onEnd); };
+  el.addEventListener('transitionend', onEnd);
+  // Fallback: if no transition fires, hide after 600ms
+  setTimeout(() => { if (el.style.opacity === '0') el.style.display = 'none'; }, 600);
+}
 
 // ─── Init / Reset ─────────────────────────────────────────────────────────────
 function initGame() {
@@ -1361,7 +1377,11 @@ function loop(ts) {
 // ─── Button bindings ──────────────────────────────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', () => {
   startAmbient();
-  hideScreen('title-screen');
+  // Hide title immediately — no transition needed, game canvas takes over instantly
+  const titleEl = document.getElementById('title-screen');
+  titleEl.style.display = 'none';
+  titleEl.style.opacity  = '0';
+  titleEl.style.pointerEvents = 'none';
   initGame();
   state = STATE.PLAYING;
   lastTime = performance.now();
