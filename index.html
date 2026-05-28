@@ -488,9 +488,11 @@ function drawRocks(lightRadius) {
     const sy = rock.y - camY;
     if (sx < -100 || sx > W + 100 || sy < -100 || sy > H + 100) continue;
     const d = dist(rock, player);
-    if (d > lightRadius + rock.r + 20) continue;
-    const alpha = clamp((lightRadius + rock.r - d) / 80, 0, 1);
-    ctx.globalAlpha = alpha * 0.85;
+    const haloR = lightRadius * 1.75;
+    if (d > haloR + rock.r + 20) continue;
+    const mainAlpha = clamp((lightRadius + rock.r - d) / 80, 0, 0.85);
+    const haloAlpha = clamp((haloR + rock.r - d) / 160, 0, 0.28);
+    ctx.globalAlpha = Math.max(mainAlpha, haloAlpha);
     ctx.fillStyle = '#0d1a22';
     ctx.strokeStyle = 'rgba(30,80,100,0.5)';
     ctx.lineWidth = 1.5;
@@ -527,8 +529,8 @@ const player = {
 
 const LIGHT_RADIUS_ON  = 220;
 const LIGHT_RADIUS_OFF = 35;
-const ENERGY_DRAIN_BASE = 3.5;   // per second passive
-const ENERGY_DRAIN_LIGHT = 4;    // extra per second when light on
+const ENERGY_DRAIN_BASE = 1.5;   // per second passive
+const ENERGY_DRAIN_LIGHT = 2;    // extra per second when light on
 const MOVE_ACCEL = 520;
 const FRICTION  = 0.88;
 
@@ -610,7 +612,10 @@ function drawPrey(lightRadius) {
     const sy = f.y - camY;
     if (sx < -20 || sx > W + 20 || sy < -20 || sy > H + 20) continue;
     const d = dist(f, player);
-    const alpha = clamp((lightRadius - d + f.r * 2 + 40) / 60, 0, 1);
+    const haloR = lightRadius * 1.75;
+    const mainAlpha = clamp((lightRadius - d + f.r * 2 + 40) / 60, 0, 1);
+    const haloAlpha = clamp((haloR - d + f.r * 2) / 160, 0, 0.22);
+    const alpha = Math.max(mainAlpha, haloAlpha);
     if (alpha < 0.01) continue;
     ctx.globalAlpha = alpha;
     const glow = 0.5 + 0.5 * Math.sin(f.pulse);
@@ -713,7 +718,7 @@ function drawPredators(lightRadius) {
     if (sx < -120 || sx > W + 120 || sy < -120 || sy > H + 120) continue;
     const d = dist(pred, player);
     // Predators visible from further if alerted
-    const visRange = lightRadius + pred.r * 2 + pred.alertness * 150;
+    const visRange = lightRadius * 1.75 + pred.r * 2 + pred.alertness * 150;
     const alpha = clamp((visRange - d) / 120, 0, 1);
     if (alpha < 0.01) continue;
 
@@ -882,26 +887,63 @@ function drawLight() {
   const sx = W / 2;
   const sy = H / 2;
   const r = player.lightRadius;
+  const haloR = r * 1.75;
+  const lureG = player.lureGlow;
 
-  // Darkness overlay with radial cutout
+  // Bloom ring drawn before darkness so it partially shows through the halo zone
+  if (r > 30) {
+    ctx.save();
+    const bloom = ctx.createRadialGradient(sx, sy, r * 0.52, sx, sy, r * 1.6);
+    const b1 = Math.floor(160 * lureG);
+    const b2 = Math.floor(120 * lureG);
+    const b3 = Math.floor(80 * lureG);
+    const b4 = Math.floor(55 * lureG);
+    bloom.addColorStop(0,    'rgba(0,0,0,0)');
+    bloom.addColorStop(0.32, `rgba(0,${b1},${b2},${0.22 * lureG})`);
+    bloom.addColorStop(0.58, `rgba(0,${b3},${b4},${0.10 * lureG})`);
+    bloom.addColorStop(1,    'rgba(0,0,0,0)');
+    ctx.fillStyle = bloom;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Darkness overlay — soft falloff leaves halo zone semi-transparent
   ctx.save();
-  const darkOverlay = ctx.createRadialGradient(sx, sy, r * 0.25, sx, sy, r * 1.35);
-  darkOverlay.addColorStop(0, 'rgba(0,4,12,0)');
-  darkOverlay.addColorStop(0.7, 'rgba(0,4,12,0.6)');
-  darkOverlay.addColorStop(1, 'rgba(0,4,12,0.98)');
+  const darkOverlay = ctx.createRadialGradient(sx, sy, r * 0.15, sx, sy, haloR);
+  darkOverlay.addColorStop(0,    'rgba(0,4,12,0)');
+  darkOverlay.addColorStop(0.28, 'rgba(0,4,12,0.15)');
+  darkOverlay.addColorStop(0.54, 'rgba(0,4,12,0.60)');
+  darkOverlay.addColorStop(0.76, 'rgba(0,4,12,0.85)');
+  darkOverlay.addColorStop(1,    'rgba(0,4,12,0.99)');
   ctx.fillStyle = darkOverlay;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 
-  // Ambient bioluminescent tint in light radius
+  // Additive halo ring highlight — glowing edge drawn on top of darkness
   if (r > 30) {
     ctx.save();
-    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 0.8);
-    g.addColorStop(0, `rgba(0,60,80,${0.08 * (r / LIGHT_RADIUS_ON)})`);
-    g.addColorStop(1, 'transparent');
-    ctx.fillStyle = g;
+    ctx.globalCompositeOperation = 'screen';
+    const ring = ctx.createRadialGradient(sx, sy, r * 0.78, sx, sy, r * 1.15);
+    ring.addColorStop(0,   'rgba(0,0,0,0)');
+    ring.addColorStop(0.4, `rgba(0,${Math.floor(100*lureG)},${Math.floor(80*lureG)},${0.09 * lureG})`);
+    ring.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = ring;
     ctx.beginPath();
-    ctx.arc(sx, sy, r * 0.8, 0, Math.PI * 2);
+    ctx.arc(sx, sy, r * 1.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Inner bioluminescent core tint
+    ctx.save();
+    const intensity = r / LIGHT_RADIUS_ON;
+    const core = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 0.72);
+    core.addColorStop(0, `rgba(0,75,95,${0.12 * intensity})`);
+    core.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r * 0.72, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
