@@ -473,7 +473,8 @@ function initRocks(difficulty) {
   const count = 40 + Math.floor(difficulty * 20);
   for (let i = 0; i < count; i++) {
     const n = randI(6, 10);
-    const verts = Array.from({length: n}, () => rand(0.60, 1.0));
+    const verts = [];
+    for (let j = 0; j < n; j++) verts.push(rand(0.60, 1.0));
     rocks.push({
       x: rand(50, WORLD - 50),
       y: rand(50, WORLD - 50),
@@ -526,9 +527,7 @@ function drawRocks(lightRadius) {
     ctx.lineWidth = 1.8;
     ctx.stroke();
 
-    // Inner bevel ring (inner polygon at ~70%)
-    ctx.save();
-    ctx.clip();
+    // Inner bevel ring (inner polygon, no clip needed — 68% scale stays inside outer)
     ctx.beginPath();
     for (let i = 0; i < rock.points; i++) {
       const a = rock.angle + (i / rock.points) * Math.PI * 2;
@@ -540,7 +539,6 @@ function drawRocks(lightRadius) {
     ctx.strokeStyle = `rgba(35,90,120,${alpha * 0.3})`;
     ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.restore();
 
     ctx.globalAlpha = 1;
   }
