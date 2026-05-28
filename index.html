@@ -1377,11 +1377,8 @@ function loop(ts) {
 // ─── Button bindings ──────────────────────────────────────────────────────────
 document.getElementById('start-btn').addEventListener('click', () => {
   startAmbient();
-  // Hide title immediately — no transition needed, game canvas takes over instantly
   const titleEl = document.getElementById('title-screen');
-  titleEl.style.display = 'none';
-  titleEl.style.opacity  = '0';
-  titleEl.style.pointerEvents = 'none';
+  if (titleEl) titleEl.remove();
   initGame();
   state = STATE.PLAYING;
   lastTime = performance.now();
