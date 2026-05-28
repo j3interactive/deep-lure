@@ -783,7 +783,7 @@ function updateShake(dt) {
 // ─── Game vars ───────────────────────────────────────────────────────────────
 let score = 0;
 let survivalTime = 0;
-let highScore = parseInt(localStorage.getItem('deepLureHS') || '0');
+let highScore = (() => { try { return parseInt(localStorage.getItem('deepLureHS') || '0'); } catch(e) { return 0; } })();
 let difficulty = 0;
 let predSpawnTimer = 0;
 let preySpawnTimer = 0;
@@ -791,8 +791,8 @@ let gameOverTimer = 0;
 
 // ─── Player drawing ──────────────────────────────────────────────────────────
 function drawPlayer() {
-  const sx = W / 2 + shakeOffX;
-  const sy = H / 2 + shakeOffY;
+  const sx = W / 2;
+  const sy = H / 2;
   const t  = performance.now() / 1000;
   const blink = player.invincible > 0 && Math.sin(t * 20) > 0;
   if (blink) return;
@@ -1034,7 +1034,7 @@ function triggerDeath() {
   spawnParticles(player.x, player.y, 30, '#00bfff', 100, 1.5);
   if (score > highScore) {
     highScore = score;
-    localStorage.setItem('deepLureHS', highScore);
+    try { localStorage.setItem('deepLureHS', highScore); } catch(e) {}
   }
   gameOverTimer = 1.5;
 }
